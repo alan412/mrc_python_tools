@@ -137,7 +137,8 @@ def _generateBlocksForModule(module, blocks_generator: blocks.BlocksGenerator, i
   ts_file = open(f'{FLAGS.output_directory}/generate_blocks/blocks/generated/{ts_file_name}', 'w', encoding='utf-8')
   print('// This file was generated. Do not edit!\n', file=ts_file)
   if len(import_lines_set) > 0:
-    for import_line in sorted(import_lines_set):
+    import_lines_list = sorted(import_lines_set)
+    for import_line in import_lines_list:
       print(import_line, file=ts_file)
     print('', file=ts_file)
   print(f'// Blocks for module {module_name}\n', file=ts_file)
@@ -263,7 +264,8 @@ def _generateBlocksForClass(cls, blocks_generator, initialize_function_names, to
   ts_file = open(f'{FLAGS.output_directory}/generate_blocks/blocks/generated/{ts_file_name}', 'w', encoding='utf-8')
   print('// This file was generated. Do not edit!\n', file=ts_file)
   if len(import_lines_set) > 0:
-    for import_line in import_lines_set:
+    import_lines_list = sorted(import_lines_set)
+    for import_line in import_lines_list:
       print(import_line, file=ts_file)
     print('', file=ts_file)
   print(f'// Blocks for class {class_name}\n', file=ts_file)
@@ -334,18 +336,18 @@ def _organizeToolbox(parent, tree, spaces, toolbox_function_names) -> str:
 
     if key in toolbox_function_names:
       ts_module = key.replace('.', '_')
-      toolbox += f'    {spaces}{ts_module}.{toolbox_function_names[key]}(['
+      toolbox += f'    {spaces}{ts_module}.{toolbox_function_names[key]}('
     else:
       toolbox += (
         f'    {spaces}{{ kind: "category", name: "{part}", '
-        'contents: [')
+        'contents: ')
     r = _organizeToolbox(key, tree[part], spaces + '  ', toolbox_function_names)
     if r:
-      toolbox += f'\n{r}    {spaces}'
+      toolbox += f'[\n{r}    {spaces}]'
     if key in toolbox_function_names:
-      toolbox += ']),\n'
+      toolbox += '),\n'
     else:
-      toolbox += ']},\n'
+      toolbox += '},\n'
   return toolbox
 
 
@@ -362,7 +364,9 @@ def _writeToolboxFile(toolbox_function_names, ts_file_names):
         f'import * as {ts_module} from \'../../blocks/generated/{ts_file_name_without_suffix}\';',
         file=ts_file)
   print('', file=ts_file)
-  print(f'export function getToolboxCategories() {{', file=ts_file)
+  print('import {Category} from "../../toolbox/items";', file=ts_file)
+  print('', file=ts_file)
+  print(f'export function getToolboxCategories(): Category[] {{', file=ts_file)
   print('  return [', file=ts_file)
   print(toolbox, end='', file=ts_file)
   print('  ];', file=ts_file)

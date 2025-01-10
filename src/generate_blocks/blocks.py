@@ -673,8 +673,8 @@ class BlocksGenerator:
 
     function_name = 'getToolboxCategory'
     code = (
-        f'export function {function_name}(subcategories: any): Category {{\n'
-        '  const category = {\n'
+        f'export function {function_name}(subcategories: Category[] = []): Category {{\n'
+        '  const category: Category = {\n'
         '    kind: "category",\n'
         f'    name: "{visible_category_name}",\n'
         '    contents: [\n')
@@ -685,7 +685,7 @@ class BlocksGenerator:
          '    ],\n'
          '  };\n')
     code += (
-         '  if (subcategories) {\n'
+         '  if (category.contents) {\n'
          '    category.contents.push(...subcategories);\n'
          '  }\n'
          '  return category;\n'
