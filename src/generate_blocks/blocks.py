@@ -349,7 +349,7 @@ class BlocksGenerator:
   def generateEnumValueBlock(
       self, field_names: list[str], field_values: list[str],
       enum_type: str, import_module: str) -> str:
-    block_type = 'get_python_enum_value'
+    block_type = 'mrc_get_python_enum_value'
     extra_state = {
       'enumType': enum_type,
       'importModule': import_module,
@@ -632,7 +632,7 @@ class BlocksGenerator:
     enum_values.sort()
 
     # This generated code will end up in blocks/generated/<name>.ts
-    import_lines_set.add('import * as pythonEnum from "../python_enum";')
+    import_lines_set.add('import * as pythonEnum from "../mrc_get_python_enum_value";')
     initialize_lines.append(
         f'pythonEnum.initializeEnum("{enum_class_name}", {json.dumps(enum_values)}, {json.dumps(enum_tooltip)});')
 
