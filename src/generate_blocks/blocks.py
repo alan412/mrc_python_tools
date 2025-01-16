@@ -25,16 +25,14 @@ import typing
 import python_util
 
 
-_FIELD_MODULE_NAME = 'MODULE'
-_FIELD_CLASS_NAME = 'CLASS'
+_FIELD_MODULE_OR_CLASS_NAME = 'MODULE_OR_CLASS'
 _FIELD_VARIABLE_NAME = 'VAR'
 _FIELD_FUNCTION_NAME = 'FUNC'
 _FIELD_ENUM_CLASS_NAME = 'ENUM_TYPE'
 _FIELD_ENUM_VALUE = 'ENUM_VALUE'
 
 _CONSTANTS_SHARED_WITH_TYPESCRIPT = {
-  'FIELD_MODULE_NAME': _FIELD_MODULE_NAME,
-  'FIELD_CLASS_NAME': _FIELD_CLASS_NAME,
+  'FIELD_MODULE_OR_CLASS_NAME': _FIELD_MODULE_OR_CLASS_NAME,
   'FIELD_VARIABLE_NAME': _FIELD_VARIABLE_NAME,
   'FIELD_FUNCTION_NAME': _FIELD_FUNCTION_NAME,
   'FIELD_ENUM_CLASS_NAME': _FIELD_ENUM_CLASS_NAME,
@@ -239,13 +237,15 @@ class BlocksGenerator:
       block['inputs'] = inputs
     return block
 
-  def generateVariableGetterBlock(
-      self, block_type: str, field_names: list[str], field_values: list[str],
-      var_type: str, key: str, self_label: str, self_type: str,
+  def generateGetVariableBlock(
+      self, var_kind: str, module_or_class_name: str,
+      field_names: list[str], field_values: list[str],
+      var_type: str, self_label: str, self_type: str,
       import_module: str) -> str:
     extra_state = {
+      'varKind': var_kind,
+      'moduleOrClassName': module_or_class_name,
       'varType': var_type,
-      'key': key,
       'importModule': import_module,
     }
 
@@ -258,17 +258,19 @@ class BlocksGenerator:
       if self_var_name:
         inputs['SELF'] = self.valueVariableGetter(self_var_name)
 
-    block = self.createBlock(block_type, extra_state, field_names, field_values, inputs)
+    block = self.createBlock('mrc_get_python_variable', extra_state, field_names, field_values, inputs)
     return json.dumps(block)
 
 
-  def generateVariableSetterBlock(
-      self, block_type: str, field_names: list[str], field_values: list[str],
-      var_type: str, key: str, self_label: str, self_type: str,
+  def generateSetVariableBlock(
+      self, var_kind: str, module_or_class_name: str,
+      field_names: list[str], field_values: list[str],
+      var_type: str, self_label: str, self_type: str,
       import_module: str) -> str:
     extra_state = {
+      'varKind': var_kind,
+      'moduleOrClassName': module_or_class_name,
       'varType': var_type,
-      'key': key,
       'importModule': import_module,
     }
 
@@ -285,17 +287,18 @@ class BlocksGenerator:
       if self_var_name:
         inputs['SELF'] = self.valueVariableGetter(self_var_name)
 
-    block = self.createBlock(block_type, extra_state, field_names, field_values, inputs)
+    block = self.createBlock('mrc_set_python_variable', extra_state, field_names, field_values, inputs)
     return json.dumps(block)
       
-  def generateFunctionBlock(
-      self, block_type: str, field_names: list[str], field_values: list[str],
+  def generateCallFunctionBlock(
+      self, function_kind: str, field_names: list[str], field_values: list[str],
       tooltip: str, return_type: str, arg_names: list[str], arg_types: list[str],
       arg_default_values: list[str], import_module: str) -> str:
     extra_state = {
-      'tooltip': tooltip,
+      'functionKind': function_kind,
       'returnType': return_type,
       'args': [],
+      'tooltip': tooltip,
       'importModule': import_module,
     }
 
@@ -337,7 +340,7 @@ class BlocksGenerator:
             print(f'WARNING - expected boolean default value, found "{arg_default_values[i]}"',
                   file=sys.stderr)
 
-    block = self.createBlock(block_type, extra_state, field_names, field_values, inputs)
+    block = self.createBlock('mrc_call_python_function', extra_state, field_names, field_values, inputs)
 
     if return_type and return_type != 'None':
       var_name = self.varNameForType(return_type)
@@ -349,13 +352,12 @@ class BlocksGenerator:
   def generateEnumValueBlock(
       self, field_names: list[str], field_values: list[str],
       enum_type: str, import_module: str) -> str:
-    block_type = 'get_python_enum_value'
     extra_state = {
       'enumType': enum_type,
       'importModule': import_module,
     }
     inputs = {}
-    block = self.createBlock(block_type, extra_state, field_names, field_values, inputs)
+    block = self.createBlock('mrc_get_python_enum_value', extra_state, field_names, field_values, inputs)
     return json.dumps(block)
 
   # Variable getter and setter blocks
@@ -369,59 +371,60 @@ class BlocksGenerator:
       initialize_lines: list[str],
       toolbox_blocks: list[str]) -> str:
 
-    # We don't have a way to get tooltips for module and class variables.
-
     # This generated code will end up in blocks/generated/<name>.ts
-    import_lines_set.add('import * as pythonVariable from "../python_variable";')
+    import_lines_set.add('import * as getPythonVariable from "../mrc_get_python_variable";')
+    if len(setter_var_names) > 0:
+      import_lines_set.add('import * as setPythonVariable from "../mrc_set_python_variable";')
+
+    # We don't have a way to get tooltips for module and class variables.
+    getter_tooltips = []
+    setter_tooltips = []
 
     if class_name:
-      key = f'class {class_name} {var_type}'
-      block_type_getter = 'get_python_class_variable'
-      block_type_setter = 'set_python_class_variable'
+      var_kind = 'class'
+      module_or_class_name = class_name
       initialize_lines.append(
-          f'pythonVariable.initializeClassVariableGetter("{class_name}", "{var_type}", '
-          f'{json.dumps(getter_var_names)}, []);')
+          f'getPythonVariable.initializeClassVariableGetter("{class_name}", "{var_type}", '
+          f'{json.dumps(getter_var_names)}, {json.dumps(getter_tooltips)});')
       if len(setter_var_names) > 0:
         initialize_lines.append(
-            f'pythonVariable.initializeClassVariableSetter("{class_name}", "{var_type}", '
-            f'{json.dumps(setter_var_names)}, []);')
+            f'setPythonVariable.initializeClassVariableSetter("{class_name}", "{var_type}", '
+            f'{json.dumps(setter_var_names)}, {json.dumps(setter_tooltips)});')
     else:
-      key = f'module {module_name} {var_type}'
-      block_type_getter = 'get_python_module_variable'
-      block_type_setter = 'set_python_module_variable'
+      var_kind = 'module'
+      module_or_class_name = module_name
       initialize_lines.append(
-          f'pythonVariable.initializeModuleVariableGetter("{module_name}", "{var_type}", '
-          f'{json.dumps(getter_var_names)}, []);')
+          f'getPythonVariable.initializeModuleVariableGetter("{module_name}", "{var_type}", '
+          f'{json.dumps(getter_var_names)}, {json.dumps(getter_tooltips)});')
       if len(setter_var_names) > 0:
         initialize_lines.append(
-            f'pythonVariable.initializeModuleVariableSetter("{module_name}", "{var_type}", '
-            f'{json.dumps(setter_var_names)}, []);')
+            f'setPythonVariable.initializeModuleVariableSetter("{module_name}", "{var_type}", '
+            f'{json.dumps(setter_var_names)}, {json.dumps(setter_tooltips)});')
 
     # self_label and self_type are ignored for module and class variables.
-    self_label  = ''
-    self_type  = ''
+    self_label = ''
+    self_type = ''
     import_module = module_name
 
     for var_name in getter_var_names:
+      field_names = [_FIELD_MODULE_OR_CLASS_NAME, _FIELD_VARIABLE_NAME]
       if class_name:
-        field_names = [_FIELD_CLASS_NAME, _FIELD_VARIABLE_NAME]
         field_values = [class_name, var_name]
       else:
-        field_names = [_FIELD_MODULE_NAME, _FIELD_VARIABLE_NAME]
         field_values = [module_name, var_name]
 
       # Generate the getter block.
       toolbox_blocks.append(
-          self.generateVariableGetterBlock(
-              block_type_getter, field_names, field_values, var_type, key,
-              self_label, self_type, import_module))
+          self.generateGetVariableBlock(
+              var_kind, module_or_class_name, field_names, field_values,
+              var_type, self_label, self_type, import_module))
 
       if var_name in setter_var_names:
         # Generate the setter block.
         toolbox_blocks.append(
-            self.generateVariableSetterBlock(
-                block_type_setter, field_names, field_values, var_type, key,
-                self_label, self_type, import_module))
+            self.generateSetVariableBlock(
+                var_kind, module_or_class_name, field_names, field_values,
+                var_type, self_label, self_type, import_module))
 
 
   def generateBlocksForInstanceVariables(
@@ -436,13 +439,10 @@ class BlocksGenerator:
 
     class_name = getClassName(cls)
 
-    key = f'instance {class_name} {var_type}'
-    block_type_getter = 'get_python_instance_variable'
-    block_type_setter = 'set_python_instance_variable'
-
-    self_label_name = getSelfArgName(cls)
-    self_type = class_name
-    import_module = ''
+    # This generated code will end up in blocks/generated/<name>.ts
+    import_lines_set.add('import * as getPythonVariable from "../mrc_get_python_variable";')
+    if len(setter_var_names) > 0:
+      import_lines_set.add('import * as setPythonVariable from "../mrc_set_python_variable";')
 
     getter_tooltips = []
     setter_tooltips = []
@@ -452,32 +452,37 @@ class BlocksGenerator:
       if var_name in setter_var_names:
         setter_tooltips.append(tooltip)
 
-    # This generated code will end up in blocks/generated/<name>.ts
-    import_lines_set.add('import * as pythonVariable from "../python_variable";')
+    var_kind = 'instance'
+    module_or_class_name = class_name
+
     initialize_lines.append(
-        f'pythonVariable.initializeInstanceVariableGetter("{class_name}", "{var_type}", '
+        f'getPythonVariable.initializeInstanceVariableGetter("{class_name}", "{var_type}", '
         f'{json.dumps(getter_var_names)}, {json.dumps(getter_tooltips)});')
     if len(setter_var_names) > 0:
       initialize_lines.append(
-          f'pythonVariable.initializeInstanceVariableSetter("{class_name}", "{var_type}", '
+          f'setPythonVariable.initializeInstanceVariableSetter("{class_name}", "{var_type}", '
           f'{json.dumps(setter_var_names)}, {json.dumps(setter_tooltips)});')
 
+    self_label = getSelfArgName(cls)
+    self_type = class_name
+    import_module = ''
+
     for var_name in getter_var_names:
-      field_names = [_FIELD_CLASS_NAME, _FIELD_VARIABLE_NAME]
+      field_names = [_FIELD_MODULE_OR_CLASS_NAME, _FIELD_VARIABLE_NAME]
       field_values = [class_name, var_name]
 
       # Generate the getter block.
       toolbox_blocks.append(
-          self.generateVariableGetterBlock(
-              block_type_getter, field_names, field_values, var_type, key,
-              self_label_name, self_type, import_module))
+          self.generateGetVariableBlock(
+              var_kind, module_or_class_name, field_names, field_values,
+              var_type, self_label, self_type, import_module))
 
       if var_name in setter_var_names:
         # Generate the setter block.
         toolbox_blocks.append(
-            self.generateVariableSetterBlock(
-                block_type_setter, field_names, field_values, var_type, key,
-                self_label_name, self_type, import_module))
+            self.generateSetVariableBlock(
+                var_kind, module_or_class_name, field_names, field_values,
+                var_type, self_label, self_type, import_module))
 
 
   # Function blocks
@@ -499,7 +504,7 @@ class BlocksGenerator:
             file=sys.stderr)
       return
 
-    block_type = 'call_python_module_function'
+    function_kind = 'module'
     import_module = module_name
 
     for iSignature in range(len(signatures)):
@@ -516,14 +521,14 @@ class BlocksGenerator:
               file=sys.stderr)
         continue
 
-      field_names = [_FIELD_MODULE_NAME, _FIELD_FUNCTION_NAME]
+      field_names = [_FIELD_MODULE_OR_CLASS_NAME, _FIELD_FUNCTION_NAME]
       field_values = [module_name, function_name]
       tooltip = comments[iSignature]
 
       # Generate the function block.
       toolbox_blocks.append(
-          self.generateFunctionBlock(
-              block_type, field_names, field_values, tooltip, return_type,
+          self.generateCallFunctionBlock(
+              function_kind, field_names, field_values, tooltip, return_type,
               arg_names, arg_types, arg_default_values, import_module))
 
 
@@ -585,25 +590,25 @@ class BlocksGenerator:
         arg_names.pop(0)
         arg_types.pop(0)
         arg_default_values.pop(0)
-        block_type = 'call_python_constructor'
-        field_names = [_FIELD_CLASS_NAME]
+        function_kind = 'constructor'
+        field_names = [_FIELD_MODULE_OR_CLASS_NAME]
         field_values = [declaring_class_name]
       elif found_self_arg:
-        block_type = 'call_python_instance_method'
+        function_kind = 'instance'
         import_module = ''
-        field_names = [_FIELD_CLASS_NAME, _FIELD_FUNCTION_NAME]
+        field_names = [_FIELD_MODULE_OR_CLASS_NAME, _FIELD_FUNCTION_NAME]
         field_values = [declaring_class_name, function_name]
       else:
-        block_type = 'call_python_static_method'
-        field_names = [_FIELD_CLASS_NAME, _FIELD_FUNCTION_NAME]
+        function_kind = 'static'
+        field_names = [_FIELD_MODULE_OR_CLASS_NAME, _FIELD_FUNCTION_NAME]
         field_values = [declaring_class_name, function_name]
 
       tooltip = comments[iSignature]
 
       # Generate the function block.
       toolbox_blocks.append(
-          self.generateFunctionBlock(
-              block_type, field_names, field_values, tooltip, return_type,
+          self.generateCallFunctionBlock(
+              function_kind, field_names, field_values, tooltip, return_type,
               arg_names, arg_types, arg_default_values, import_module))
 
 
@@ -632,7 +637,7 @@ class BlocksGenerator:
     enum_values.sort()
 
     # This generated code will end up in blocks/generated/<name>.ts
-    import_lines_set.add('import * as pythonEnum from "../python_enum";')
+    import_lines_set.add('import * as pythonEnum from "../mrc_get_python_enum_value";')
     initialize_lines.append(
         f'pythonEnum.initializeEnum("{enum_class_name}", {json.dumps(enum_values)}, {json.dumps(enum_tooltip)});')
 
@@ -698,7 +703,7 @@ class BlocksGenerator:
     constants = []
     for key, value in _CONSTANTS_SHARED_WITH_TYPESCRIPT.items():
       constants.append(f'export const {key} = {json.dumps(value)};')
-    return '\n'.join(constants);
+    return '\n'.join(constants)
 
   def generateGetAliasFunction(self) -> str:
     code = (
