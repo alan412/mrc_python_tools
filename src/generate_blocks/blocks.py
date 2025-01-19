@@ -662,39 +662,43 @@ class BlocksGenerator:
 
   def generateGetToolboxCategoryFunction(self, module, cls, toolbox_blocks, import_lines_set) -> (str, str):
     if cls:
-      category_name = getClassName(cls)
+      category_type = 'PythonClassCategory'
+      property = 'className'
+      module_or_class_name = getClassName(cls)
     else:
-      category_name = getModuleName(module)
+      category_type = 'PythonModuleCategory'
+      property = 'moduleName'
+      module_or_class_name = getModuleName(module)
 
     # The visible category name is just the final segment.
-    lastDot = category_name.rfind('.')
+    lastDot = module_or_class_name.rfind('.')
     if lastDot != -1:
-      visible_category_name = category_name[lastDot + 1:] 
+      category_name = module_or_class_name[lastDot + 1:] 
     else:
-      visible_category_name = category_name
+      category_name = module_or_class_name
 
     # This generated code will end up in blocks/generated/<name>.ts
-    import_lines_set.add('import {Category} from "../../toolbox/items";')
+    import_lines_set.add(f'import * as toolboxItems from "../../toolbox/items";')
 
     function_name = 'getToolboxCategory'
     code = (
-        f'export function {function_name}(subcategories: Category[] = []): Category {{\n'
-        '  const category: Category = {\n'
-        '    kind: "category",\n'
-        f'    name: "{visible_category_name}",\n'
-        '    contents: [\n')
+        f'export function {function_name}(subcategories: toolboxItems.Category[] = []): toolboxItems.Category {{\n'
+        f'  const contents: toolboxItems.ContentsType[] = [\n')
     for toolbox_block in toolbox_blocks:
       code += (
-          f'      {toolbox_block},\n')
+          f'    {toolbox_block},\n')
     code += (
-         '    ],\n'
-         '  };\n')
+        '  ];\n'
+        '  contents.push(...subcategories);\n'
+        f'  const category: toolboxItems.{category_type} = {{\n'
+        '    kind: "category",\n'
+        f'    {property}: "{module_or_class_name}",\n'
+        f'    name:  "{category_name}",\n'
+        '      contents: contents,\n'
+        '  };\n')
     code += (
-         '  if (category.contents) {\n'
-         '    category.contents.push(...subcategories);\n'
-         '  }\n'
-         '  return category;\n'
-         '}')
+        '  return category;\n'
+        '}')
     return (code, function_name)
 
   # Functions that generate TypeScript code for blocks/utils/generated/python.ts
