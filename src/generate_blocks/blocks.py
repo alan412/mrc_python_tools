@@ -113,7 +113,7 @@ def getSelfVarName(cls: type) -> str:
 class BlocksGenerator:
   def __init__(self, root_modules: list[types.ModuleType]):
     self._root_modules = root_modules
-    (self._modules, self._classes, self._dict_class_name_to_alias) = python_util.collectModulesAndClasses(self._root_modules)
+    (self._packages, self._modules, self._classes, self._dict_class_name_to_alias) = python_util.collectModulesAndClasses(self._root_modules)
     self._dict_class_name_to_allowed_types = python_util.collectAllowedTypes(self._classes)
 
   def getPublicModules(self) -> list[types.ModuleType]:
@@ -661,14 +661,17 @@ class BlocksGenerator:
     return (code, function_name)
 
   def generateGetToolboxCategoryFunction(self, module, cls, toolbox_blocks, import_lines_set) -> (str, str):
+    properties = {}
     if cls:
       category_type = 'PythonClassCategory'
-      property = 'className'
       module_or_class_name = getClassName(cls)
+      properties['className'] = module_or_class_name
     else:
       category_type = 'PythonModuleCategory'
-      property = 'moduleName'
       module_or_class_name = getModuleName(module)
+      properties['moduleName'] = module_or_class_name
+      if module.__package__:
+        properties['packageName'] = module.__package__
 
     # The visible category name is just the final segment.
     lastDot = module_or_class_name.rfind('.')
@@ -682,21 +685,22 @@ class BlocksGenerator:
 
     function_name = 'getToolboxCategory'
     code = (
-        f'export function {function_name}(subcategories: toolboxItems.Category[] = []): toolboxItems.Category {{\n'
+        f'export function {function_name}(subcategories: toolboxItems.Category[] = []): toolboxItems.Category {{\n\n'
+        f'  // There are {len(toolbox_blocks)} blocks.\n'
         f'  const contents: toolboxItems.ContentsType[] = [\n')
     for toolbox_block in toolbox_blocks:
-      code += (
-          f'    {toolbox_block},\n')
+      code += f'    {toolbox_block},\n'
     code += (
-        '  ];\n'
-        '  contents.push(...subcategories);\n'
+        '  ];\n\n'
+        '  contents.push(...subcategories);\n\n'
         f'  const category: toolboxItems.{category_type} = {{\n'
         '    kind: "category",\n'
-        f'    {property}: "{module_or_class_name}",\n'
         f'    name:  "{category_name}",\n'
-        '      contents: contents,\n'
-        '  };\n')
+        '    contents: contents,\n')
+    for property, value in properties.items():
+      code += f'    {property}: "{value}",\n'
     code += (
+        '  };\n\n'
         '  return category;\n'
         '}')
     return (code, function_name)

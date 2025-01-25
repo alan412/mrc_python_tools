@@ -69,7 +69,7 @@ class Examine:
 
   def __init__(self, root_modules: list[types.ModuleType]):
     self._root_modules = root_modules
-    (self._modules, self._classes, self._dict_class_name_to_alias) = python_util.collectModulesAndClasses(self._root_modules)
+    (self._packages, self._modules, self._classes, self._dict_class_name_to_alias) = python_util.collectModulesAndClasses(self._root_modules)
     self._dict_class_name_to_allowed_types = python_util.collectAllowedTypes(self._classes)
     self.output_file = open(f"{FLAGS.output_directory}/examine/examine.txt", "w", encoding="utf-8")
     self.show_ids = False
@@ -141,6 +141,14 @@ class Examine:
       details.append("isclass")
       if not python_util.isTypeAlias(parent, key, some_object):
         full_name = python_util.getFullClassName(some_object)
+    if hasattr(some_object, '__package__'):
+      details.append(f"__package__='{some_object.__package__}'")
+    else:
+      details.append("noPackage")
+    if hasattr(some_object, '__all__'):
+      details.append("__all__")
+    else:
+      details.append("noAll")
     if inspect.isfunction(some_object):
       details.append("isfunction")
     if inspect.isgeneratorfunction(some_object):
@@ -278,7 +286,9 @@ class Examine:
         break
 
 
-  def showModulesAndClasses(self) -> None:
+  def showPackagesAndModulesAndClasses(self) -> None:
+    print("\n\nPackages:", file=self.output_file)
+    print("\n".join(sorted(self._packages)), file=self.output_file)
     print("\n\nModules:", file=self.output_file)
     print("\n".join(sorted([python_util.getFullModuleName(module) for module in self._modules])), file=self.output_file)
     print("\n\nClasses:", file=self.output_file)
@@ -330,7 +340,7 @@ def main(argv):
 
   examine = Examine(root_modules)
   examine.examine()
-  examine.showModulesAndClasses()
+  examine.showPackagesAndModulesAndClasses()
   examine.close()
 
   blocks_generator = blocks.BlocksGenerator(root_modules)
