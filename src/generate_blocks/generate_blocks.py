@@ -163,12 +163,13 @@ def _generateBlocksForModules(modules, blocks_generator, initialize_function_nam
       continue
     if module_name.startswith('wpiutil'):
       continue
+    #if not hasattr(module, '__all__'):
+    #  print(f'Skipping module {blocks.getModuleName(module)}')
+    #  continue
     _generateBlocksForModule(module, blocks_generator, initialize_function_names, toolbox_function_names, ts_file_names)
   
 
 def _generateBlocksForClass(cls, blocks_generator, initialize_function_names, toolbox_function_names, ts_file_names):
-  if python_util.isEnum(cls):
-    return
   module_name = blocks.getModuleName(cls.__module__)
   class_name = blocks.getClassName(cls)
 
@@ -286,6 +287,8 @@ def _generateBlocksForClasses(classes, blocks_generator, initialize_function_nam
         break
       set_of_classes.add(c)
   for cls in set_of_classes:
+    if python_util.isEnum(cls):
+      continue
     module_name = blocks.getModuleName(cls.__module__)
     if module_name.startswith('ntcore'):
       continue
@@ -293,6 +296,13 @@ def _generateBlocksForClasses(classes, blocks_generator, initialize_function_nam
       continue
     if module_name.startswith('wpiutil'):
       continue
+    #module = python_util.getModule(module_name)
+    #if not hasattr(module, '__all__'):
+    #  print(f'Skipping class {blocks.getClassName(cls)} because module {module_name} has no __all__')
+    #  continue
+    #elif cls.__name__ not in module.__all__:
+    #  print(f'Skipping class {blocks.getClassName(cls)} because module {module_name}.__all__ does not include {cls.__name__}')
+    #  continue
     _generateBlocksForClass(cls, blocks_generator, initialize_function_names, toolbox_function_names, ts_file_names)
 
 

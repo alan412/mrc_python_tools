@@ -124,6 +124,15 @@ def processSignature(signature_line: str) -> tuple[str, list[str], list[str], li
 
 
 def ignoreMember(parent, key: str, member):
+  """
+  if inspect.ismodule(parent):
+    if hasattr(parent, '__all__'):
+      if key not in parent.__all__:
+        return True
+    else:
+      return True
+  """
+
   if inspect.ismodule(member):
     # Member is a module.
     if not inspect.ismodule(parent):
@@ -374,7 +383,7 @@ def isBuiltInClass(cls: type):
 
   
 def _collectModulesAndClasses(
-    object, modules: list[types.ModuleType], classes: list[type],
+    object, packages: list[str], modules: list[types.ModuleType], classes: list[type],
     dict_class_name_to_alias: dict[str, str], ids: list[int]):
   if id(object) in ids:
     return
@@ -385,6 +394,9 @@ def _collectModulesAndClasses(
       return
     if object not in modules:
       modules.append(object)
+    if object.__package__:
+      if object.__package__ not in packages:
+        packages.append(object.__package__)
   if inspect.isclass(object):
     if isBuiltInClass(object):
       return
@@ -405,25 +417,25 @@ def _collectModulesAndClasses(
         dict_class_name_to_alias.update({f"{blocks.getClassName(object)}.{key}": alias})
 
     if inspect.ismodule(member):
-      _collectModulesAndClasses(member, modules, classes, dict_class_name_to_alias, ids)
+      _collectModulesAndClasses(member, packages, modules, classes, dict_class_name_to_alias, ids)
     if inspect.isclass(member):
       # Collect the classes in the base classes (including this class).
       for cls in inspect.getmro(member):
         if isBuiltInClass(cls):
           break
-        _collectModulesAndClasses(cls, modules, classes, dict_class_name_to_alias, ids)
+        _collectModulesAndClasses(cls, packages, modules, classes, dict_class_name_to_alias, ids)
     if inspect.isroutine(member) and member.__doc__:
       # Collect the classes for the function arguments and return types.
       signature_line = member.__doc__.split("\n")[0]
       for cls in getClassesFromSignatureLine(signature_line):
         if isBuiltInClass(cls):
           continue
-        _collectModulesAndClasses(cls, modules, classes, dict_class_name_to_alias, ids)
+        _collectModulesAndClasses(cls, packages, modules, classes, dict_class_name_to_alias, ids)
     if isNothing(member):
       # Collect the class of this class variable.
       cls = type(member)
       if not isBuiltInClass(cls):
-        _collectModulesAndClasses(cls, modules, classes, dict_class_name_to_alias, ids)
+        _collectModulesAndClasses(cls, packages, modules, classes, dict_class_name_to_alias, ids)
     if inspect.isdatadescriptor(member):
       if hasattr(member, "fget"):
         # Collect the class of this instance variable.
@@ -434,18 +446,19 @@ def _collectModulesAndClasses(
           except:
             cls = None
           if cls and not isBuiltInClass(cls):
-            _collectModulesAndClasses(cls, modules, classes, dict_class_name_to_alias, ids)
+            _collectModulesAndClasses(cls, packages, modules, classes, dict_class_name_to_alias, ids)
 
 
 def collectModulesAndClasses(root_modules: list[types.ModuleType]) -> tuple[list[types.ModuleType], list[type], dict[str, list[str]]]:
+  packages = []
   modules = []
   classes = []
   dict_class_name_to_alias = {}
   ids = []
   for module in root_modules:
-    _collectModulesAndClasses(module, modules, classes, dict_class_name_to_alias, ids)
+    _collectModulesAndClasses(module, packages, modules, classes, dict_class_name_to_alias, ids)
   classes.sort(key=lambda c: getFullClassName(c))
-  return (modules, classes, dict_class_name_to_alias)
+  return (packages, modules, classes, dict_class_name_to_alias)
 
 
 def collectAllowedTypes(classes: list[type]) -> dict[str, list[str]]:
