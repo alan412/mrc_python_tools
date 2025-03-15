@@ -205,12 +205,16 @@ class BlocksGenerator:
   def varNameForType(self, t: str) -> str:
     while t in self._dict_class_name_to_alias:
       t = self._dict_class_name_to_alias[t]
-    if t.startswith('tuple'):
+    if t.startswith('tuple[') or t.startswith('Tuple['):
       return 'myTuple'
-    if t.startswith('dict'):
+    if t.startswith('dict[') or t.startswith('Dict['):
       return 'myDict'
-    if t.startswith('list'):
+    if t.startswith('list[') or t.startswith('List['):
       return 'myList'
+    if t.startswith('callable[') or t.startswith('Callable['):
+      return 'myCallable'
+    if '[' in t:
+      return ''
     # If the type has a dot, it is an object and we should provide a variable
     # block for this type.
     lastDot = t.rfind('.')
@@ -294,6 +298,7 @@ class BlocksGenerator:
       self, function_kind: str, field_names: list[str], field_values: list[str],
       tooltip: str, return_type: str, arg_names: list[str], arg_types: list[str],
       arg_default_values: list[str], import_module: str) -> str:
+    return_type = getClassName(return_type)
     extra_state = {
       'functionKind': function_kind,
       'returnType': return_type,
@@ -304,36 +309,37 @@ class BlocksGenerator:
 
     inputs = {}
     for i in range(len(arg_names)):
+      arg_type = getClassName(arg_types[i])
       extra_state['args'].append({
         'name': arg_names[i],
-        'type': arg_types[i],
+        'type': arg_type,
       })
       # Check if we should plug a variable getter block into the argument input socket.
-      var_name = self.varNameForType(arg_types[i])
+      var_name = self.varNameForType(arg_type)
       if var_name:
         inputs[f'ARG{i}'] = self.valueVariableGetter(var_name)
       elif arg_default_values[i]:
-        if arg_types[i] == 'int':
+        if arg_type == 'int':
           try:
             int(arg_default_values[i])
             inputs[f'ARG{i}'] = self.valueNumber(arg_default_values[i])
           except ValueError:
             print(f'WARNING - expected integer default value, found "{arg_default_values[i]}"',
                   file=sys.stderr)
-        elif arg_types[i] == 'double':
+        elif arg_type == 'double':
           try :
             float(arg_default_values[i])
             inputs[f'ARG{i}'] = self.valueNumber(arg_default_values[i])
           except ValueError:
             print(f'WARNING - expected numeric default value, found "{arg_default_values[i]}"',
                   file=sys.stderr)
-        elif arg_types[i] == 'str':
+        elif arg_type == 'str':
           if arg_default_values[i] == 'None':
             # TODO(lizlooney): Make a block for python None
             pass
           else:
             inputs[f'ARG{i}'] = self.valueString(arg_default_values[i])
-        elif arg_types[i] == 'bool':
+        elif arg_type == 'bool':
           if arg_default_values[i] == 'True' or arg_default_values[i] == 'False':
             inputs[f'ARG{i}'] = self.valueBoolean(arg_default_values[i])
           else:
@@ -583,7 +589,7 @@ class BlocksGenerator:
           else:
             arg_names[i] = self_arg_name
           if function_name == '__init__':
-            return_type = f'{arg_type}'
+            return_type = arg_type
 
       if function_name == '__init__':
         # Remove the self argument.
@@ -744,7 +750,7 @@ class BlocksGenerator:
 
     code += (
         '\n'
-        '  return [""];\n'
+        '  return [type];\n'
         '}')
 
     return code
