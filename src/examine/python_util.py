@@ -23,8 +23,6 @@ import sys
 import types
 import typing
 
-# Local modules
-import blocks
 
 
 def getModule(module_name: str) -> types.ModuleType:
@@ -410,11 +408,11 @@ def _collectModulesAndClasses(
       continue
 
     if isTypeAlias(object, key, member):
-      alias = blocks.getClassName(member)
+      alias = member
       if inspect.ismodule(object):
-        dict_class_name_to_alias.update({f"{blocks.getModuleName(object)}.{key}": alias})
+        dict_class_name_to_alias.update({f"{getFullModuleName(object)}.{key}": getFullClassName(alias)})
       elif inspect.isclass(object):
-        dict_class_name_to_alias.update({f"{blocks.getClassName(object)}.{key}": alias})
+        dict_class_name_to_alias.update({f"{getFullClassName(object)}.{key}": getFullClassName(alias)})
 
     if inspect.ismodule(member):
       _collectModulesAndClasses(member, packages, modules, classes, dict_class_name_to_alias, ids)
@@ -461,8 +459,8 @@ def collectModulesAndClasses(root_modules: list[types.ModuleType]) -> tuple[list
   return (packages, modules, classes, dict_class_name_to_alias)
 
 
-def collectAllowedTypes(classes: list[type]) -> dict[str, list[str]]:
-  dict_class_name_to_allowed_types = {}
+def collectSubclasses(classes: list[type]) -> dict[str, list[str]]:
+  dict_class_name_to_subclass_names = {}
   for c in classes:
     mro = inspect.getmro(c)
     for i in range(len(mro) - 1):
@@ -470,12 +468,12 @@ def collectAllowedTypes(classes: list[type]) -> dict[str, list[str]]:
       cls = mro[i + 1]
       if isBuiltInClass(cls):
         break
-      class_name = blocks.getClassName(cls)
-      allowed_types = dict_class_name_to_allowed_types.get(class_name)
-      if not allowed_types:
-        allowed_types = [class_name]
-        dict_class_name_to_allowed_types.update({class_name: allowed_types})
-      subclass_name = blocks.getClassName(subclass)
-      if subclass_name not in allowed_types:
-        allowed_types.append(subclass_name)
-  return dict_class_name_to_allowed_types
+      class_name = getFullClassName(cls)
+      subclass_names = dict_class_name_to_subclass_names.get(class_name)
+      if not subclass_names:
+        subclass_names = [class_name]
+        dict_class_name_to_subclass_names.update({class_name: subclass_names})
+      subclass_name = getFullClassName(subclass)
+      if subclass_name not in subclass_names:
+        subclass_names.append(subclass_name)
+  return dict_class_name_to_subclass_names
