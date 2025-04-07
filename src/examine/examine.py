@@ -56,7 +56,6 @@ import wpinet
 import wpiutil
 
 # Local modules
-import blocks
 import python_util
 
 
@@ -70,7 +69,7 @@ class Examine:
   def __init__(self, root_modules: list[types.ModuleType]):
     self._root_modules = root_modules
     (self._packages, self._modules, self._classes, self._dict_class_name_to_alias) = python_util.collectModulesAndClasses(self._root_modules)
-    self._dict_class_name_to_allowed_types = python_util.collectAllowedTypes(self._classes)
+    self._dict_class_name_to_subclass_names = python_util.collectSubclasses(self._classes)
     self.output_file = open(f"{FLAGS.output_directory}/examine/examine.txt", "w", encoding="utf-8")
     self.show_ids = False
 
@@ -143,12 +142,8 @@ class Examine:
         full_name = python_util.getFullClassName(some_object)
     if hasattr(some_object, '__package__'):
       details.append(f"__package__='{some_object.__package__}'")
-    else:
-      details.append("noPackage")
-    if hasattr(some_object, '__all__'):
-      details.append("__all__")
-    else:
-      details.append("noAll")
+    #if hasattr(some_object, '__all__'):
+    #  details.append("__all__")
     if inspect.isfunction(some_object):
       details.append("isfunction")
     if inspect.isgeneratorfunction(some_object):
@@ -295,8 +290,8 @@ class Examine:
     print("\n".join(sorted([python_util.getFullClassName(cls) for cls in self._classes])), file=self.output_file)
     print("\n\nType Aliases:", file=self.output_file)
     print("\n".join(sorted([f"{key}: {value}" for (key, value) in self._dict_class_name_to_alias.items()])), file=self.output_file)
-    print("\n\nAllowed Types:", file=self.output_file)
-    print("\n".join(sorted([f"{key}: {value}" for (key, value) in self._dict_class_name_to_allowed_types.items()])), file=self.output_file)
+    print("\n\nSubclasses:", file=self.output_file)
+    print("\n".join(sorted([f"{key}: {value}" for (key, value) in self._dict_class_name_to_subclass_names.items()])), file=self.output_file)
 
 
 def main(argv):
@@ -342,11 +337,6 @@ def main(argv):
   examine.examine()
   examine.showPackagesAndModulesAndClasses()
   examine.close()
-
-  blocks_generator = blocks.BlocksGenerator(root_modules)
-  classes = blocks_generator.getPublicClasses()
-  #for c in classes:
-  #  print(f"HeyLiz - class is {c}")
 
 
 if __name__ == "__main__":
