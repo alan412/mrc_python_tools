@@ -24,6 +24,7 @@ import typing
 # Local modules
 import python_util
 
+
 _KEY_MODULES = 'modules'
 _KEY_CLASSES = 'classes'
 _KEY_MODULE_NAME = 'moduleName'
@@ -158,14 +159,22 @@ class JsonGenerator:
     for key, value in inspect.getmembers(module, inspect.isroutine):
       if not python_util.isFunction(module, key, value):
         continue
-      if not value.__doc__:
-        print(f'ERROR: no doc for function. {module_name}.{key}',
-              file=sys.stderr)
-        continue
+      # Check whether value is a function imported from another module.
+      if value.__module__:
+        declaring_module = python_util.getModule(value.__module__)
+        if python_util.isBuiltInModule(declaring_module):
+          # Ignore the imported function from a built-in module.
+          continue;
+        if getModuleName(declaring_module) != getModuleName(module):
+          # Check whether the imported function is exported in __all__.
+          if not (key in module.__all__):
+            # Ignore the imported function.
+            continue
+
       # Look at each function signature. For overloaded functions, there will be more than one.
-      (signatures, comments) = python_util.processFunctionDoc(value)
+      (signatures, comments) = python_util.processFunction(value)
       if len(signatures) == 0:
-        print(f'WARNING: function doc has no function signature. {module_name}.{key}',
+        print(f'ERROR: failed to determine function signature for {module_name}.{key}',
               file=sys.stderr)
         continue
       for iSignature in range(len(signatures)):
@@ -174,7 +183,7 @@ class JsonGenerator:
         try:
           (function_name, arg_names, arg_types, arg_default_values, return_type) = python_util.processSignature(signature)
         except:
-          print(f'ERROR: signature not parseable. {module_name}.{key}',
+          print(f'ERROR: function signature for {module_name}.{key} is not parseable. "{signature}"',
                 file=sys.stderr)
           continue
         if function_name != key:
@@ -286,17 +295,13 @@ class JsonGenerator:
 
     # Constructors
     constructors = []
-    for key, value in inspect.getmembers(cls, python_util.mightBeConstructor):
+    for key, value in inspect.getmembers(cls):#, python_util.mightBeConstructor):
       if not python_util.isConstructor(cls, key, value):
         continue
-      if not value.__doc__:
-        print(f'ERROR: no doc for function. {class_name}.{key}',
-              file=sys.stderr)
-        continue
       # Look at each function signature. For overloaded functions, there will be more than one.
-      (signatures, comments) = python_util.processFunctionDoc(value)
+      (signatures, comments) = python_util.processFunction(value, cls)
       if len(signatures) == 0:
-        print(f'WARNING: function doc has no function signature. {class_name}.{key}',
+        print(f'ERROR: failed to determine function signature for {class_name}.{key}',
               file=sys.stderr)
         continue
       for iSignature in range(len(signatures)):
@@ -305,7 +310,7 @@ class JsonGenerator:
         try:
           (function_name, arg_names, arg_types, arg_default_values, return_type) = python_util.processSignature(signature)
         except:
-          print(f'ERROR: signature not parseable. {class_name}.{key}',
+          print(f'ERROR: function signature for {class_name}.{key} is not parseable. "{signature}"',
                 file=sys.stderr)
           continue
         if function_name != key:
@@ -342,14 +347,10 @@ class JsonGenerator:
     for key, value in inspect.getmembers(cls, inspect.isroutine):
       if not python_util.isFunction(cls, key, value):
         continue
-      if not value.__doc__:
-        print(f'ERROR: no doc for function. {class_name}.{key}',
-              file=sys.stderr)
-        continue
       # Look at each function signature. For overloaded functions, there will be more than one.
-      (signatures, comments) = python_util.processFunctionDoc(value)
+      (signatures, comments) = python_util.processFunction(value, cls)
       if len(signatures) == 0:
-        print(f'WARNING: function doc has no function signature. {class_name}.{key}',
+        print(f'ERROR: failed to determine function signature for {class_name}.{key}',
               file=sys.stderr)
         continue
       for iSignature in range(len(signatures)):
@@ -358,7 +359,7 @@ class JsonGenerator:
         try:
           (function_name, arg_names, arg_types, arg_default_values, return_type) = python_util.processSignature(signature)
         except:
-          print(f'ERROR: signature not parseable. {class_name}.{key}',
+          print(f'ERROR: function signature for {class_name}.{key} is not parseable. "{signature}"',
                 file=sys.stderr)
           continue
         if function_name != key:
@@ -452,7 +453,7 @@ class JsonGenerator:
     for full_class_name, alias in self._dict_full_class_name_to_alias.items():
       aliases[getClassName(full_class_name)] = getClassName(alias)
     return aliases
-    
+
 
   def _processSubclasses(self):
     subclasses = {}
@@ -463,11 +464,16 @@ class JsonGenerator:
       subclasses[getClassName(full_class_name)] = list
     return subclasses
 
-  def getRobotPyData(self):
-    robotpy_data = {}
-    robotpy_data[_KEY_MODULES] = self._processModules()
-    robotpy_data[_KEY_CLASSES] = self._processClasses()
-    robotpy_data[_KEY_ALIASES] = self._processAliases()
-    robotpy_data[_KEY_SUBCLASSES] = self._processSubclasses()
-    return robotpy_data
+  def _getJsonData(self):
+    json_data = {}
+    json_data[_KEY_MODULES] = self._processModules()
+    json_data[_KEY_CLASSES] = self._processClasses()
+    json_data[_KEY_ALIASES] = self._processAliases()
+    json_data[_KEY_SUBCLASSES] = self._processSubclasses()
+    return json_data
 
+  def writeJsonFile(self, file_path: str):
+    json_data = self._getJsonData()
+    json_file = open(file_path, 'w', encoding='utf-8')
+    json.dump(json_data, json_file, sort_keys=True, indent=4)
+    json_file.close()
