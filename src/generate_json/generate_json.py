@@ -15,8 +15,6 @@
 __author__ = "lizlooney@google.com (Liz Looney)"
 
 # Python Standard Library
-import inspect
-import json
 import pathlib
 import sys
 
@@ -55,20 +53,26 @@ import wpimath.units
 import wpinet
 import wpiutil
 
+# External samples
+sys.path.append("../external_samples")
+import color_range_sensor
+import component
+import rev_touch_sensor
+import servo
+import smart_motor
+import sparkfun_led_stick
+
+# Common modules
+sys.path.append("../common")
+import python_util
+
 # Local modules
 import json_util
-import python_util
 
 
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('output_directory', None, 'The directory where output should be written.')
-
-
-def _writeJsonFile(robotpy_data):
-  json_file = open(f'{FLAGS.output_directory}/generate_json/robotpy_data.json', 'w', encoding='utf-8')
-  json.dump(robotpy_data, json_file, sort_keys=True, indent=4)
-  json_file.close()
 
 
 def main(argv):
@@ -80,7 +84,7 @@ def main(argv):
 
   pathlib.Path(f'{FLAGS.output_directory}/generate_json/').mkdir(parents=True, exist_ok=True)
 
-  root_modules = [
+  robotpy_modules = [
     hal,
     hal.simulation,
     ntcore,
@@ -110,10 +114,22 @@ def main(argv):
     wpinet,
     wpiutil,
   ]
+  json_generator = json_util.JsonGenerator(robotpy_modules)
+  file_path = f'{FLAGS.output_directory}/generate_json/robotpy_data.json'
+  json_generator.writeJsonFile(file_path)
 
-  json_generator = json_util.JsonGenerator(root_modules)
-  robotpy_data = json_generator.getRobotPyData()
-  _writeJsonFile(robotpy_data)
+  external_samples_modules = [
+    color_range_sensor,
+    component,
+    rev_touch_sensor,
+    servo,
+    smart_motor,
+    sparkfun_led_stick,
+  ]
+  json_generator = json_util.JsonGenerator(external_samples_modules)
+  file_path = f'{FLAGS.output_directory}/generate_json/external_samples_data.json'
+  json_generator.writeJsonFile(file_path)
+
 
 
 if __name__ == '__main__':

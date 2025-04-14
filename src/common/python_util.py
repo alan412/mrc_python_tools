@@ -95,12 +95,28 @@ def processSignature(signature_line: str) -> tuple[str, list[str], list[str], li
     # Look for ": ", which is right after the argument name.
     i = args.find(": ", iStartOfArgName)
     if i == -1:
-      if args[iStartOfArgName] == "*":
-        arg_name = args[iStartOfArgName + 1:]
-        arg_names.append(arg_name)
+      star_star_kwargs_ = "**kwargs"
+      star_args = "*args"
+      if args[iStartOfArgName:] == "*args, **kwargs":
+        arg_names.append("args")
+        arg_types.append("tuple")
+        arg_default_values.append(None)
+        arg_names.append("kwargs")
+        arg_types.append("dict")
+        arg_default_values.append(None)
+        break
+      elif args[iStartOfArgName:] == "*args":
+        arg_names.append("args")
         arg_types.append("tuple")
         arg_default_values.append(None)
         break
+      elif args[iStartOfArgName:] == "**kwargs":
+        arg_names.append("kwargs")
+        arg_types.append("dict")
+        arg_default_values.append(None)
+        break
+      else:
+        raise Exception(f"Failed to parse signature line {signature_line}")
     arg_name = args[iStartOfArgName:i]
     arg_names.append(arg_name)
     # Get the argument type.
@@ -149,7 +165,7 @@ def ignoreMember(parent, key: str, member):
     if key != "__init__" and not startsWithUnderscoreDigit(key):
       return True
   return False
-  
+
 
 def startsWithUnderscoreDigit(s: str):
   return (
@@ -166,20 +182,24 @@ def startsWithkUpper(s: str):
 def isEnum(object):
   return (
       inspect.isclass(object) and
-      object.__doc__ and (object.__doc__.startswith("Members:\n\n") or object.__doc__.find("\n\nMembers:\n\n") != -1) and
+      object.__doc__ and
+      (object.__doc__.startswith("Members:\n\n") or object.__doc__.find("\n\nMembers:\n\n") != -1) and
       hasattr(object, "__init__") and
-      inspect.isroutine(object.__init__) and inspect.ismethoddescriptor(object.__init__) and
+      inspect.isroutine(object.__init__) and
+      inspect.ismethoddescriptor(object.__init__) and
       hasattr(object.__init__, "__doc__") and
       object.__init__.__doc__ == f"__init__(self: {getFullClassName(object)}, value: int) -> None\n" and
-      hasattr(object, "name") and inspect.isdatadescriptor(object.name) and
+      hasattr(object, "name") and
+      inspect.isdatadescriptor(object.name) and
       object.name.__doc__ == 'name(self: object) -> str\n' and
-      hasattr(object, "value") and inspect.isdatadescriptor(object.value))
+      hasattr(object, "value") and
+      inspect.isdatadescriptor(object.value))
 
 
 def mightBeConstructor(object):
   return (
       inspect.isroutine(object) and
-      inspect.ismethoddescriptor(object) and
+      (inspect.ismethoddescriptor(object) or inspect.isfunction(object)) and
       object.__name__ == "__init__")
 
 
@@ -219,7 +239,7 @@ def isNothing(object):
       not inspect.isdatadescriptor(object) and
       not inspect.isgetsetdescriptor(object) and
       not inspect.ismemberdescriptor(object))
-  
+
 
 def isModuleVariableReadable(parent, key: str, object):
   return (
@@ -286,11 +306,54 @@ def isOverloaded(object):
     object.__doc__ and object.__doc__.startswith(f"{object.__name__}(*args, **kwargs)\nOverloaded function.\n\n"))
 
 
-def processFunctionDoc(object) -> tuple[list[str], list[str]]:
+def inspectSignature(object, cls=None) -> str:
+  try:
+    sig = inspect.signature(object)
+    s = f"{object.__name__}("
+    delimiter = ""
+    for param in sig.parameters.values():
+      param_name_prefix = ""
+      param_type = ""
+      if param.annotation != inspect.Parameter.empty:
+        if inspect.isclass(param.annotation):
+          param_type = getFullClassName(param.annotation)
+        else:
+          param_type = param.annotation
+      else:
+        if param.name == "self" and cls:
+          param_type = getFullClassName(cls)
+        elif param.name == "args":
+          param_name_prefix = "*"
+        elif param.name == "kwargs":
+          param_name_prefix = "**"
+      if param_type:
+        s = f"{s}{delimiter}{param_name_prefix}{param.name}: {param_type}"
+      else:
+        s = f"{s}{delimiter}{param_name_prefix}{param.name}"
+      delimiter = ", "
+    s = f"{s})"
+    if sig.return_annotation != inspect.Signature.empty:
+      s = f"{s} -> {sig.return_annotation}"
+    else:
+      if object.__name__ == "__init__":
+        s = f"{s} -> None"
+  except:
+    s = ""
+  return s
+
+
+def processFunction(object, cls=None) -> tuple[list[str], list[str]]:
   if not inspect.isroutine(object):
     raise Exception(f"Argument object must be a function. inspect.isroutine returned False.")
   signatures = []
   comments = []
+  if not object.__doc__:
+    signature = inspectSignature(object, cls)
+    if signature:
+      signatures.append(signature)
+      comments.append("")
+    return (signatures, comments)
+
   doc = re.sub(r" object at 0x[0-9a-fA-F]{9}", "", object.__doc__)
 
   if not isOverloaded(object):
@@ -300,7 +363,10 @@ def processFunctionDoc(object) -> tuple[list[str], list[str]]:
       signatures.append(line)
       comments.append(doc[eolIndex + 1:].strip())
     else:
-      pass # TODO(lizlooney): use inspect.signature or maybe hardcode function sigatures.
+      signature = inspectSignature(object, cls)
+      if signature:
+        signatures.append(signature)
+        comments.append(doc)
     return (signatures, comments)
 
   signatureIndices = []
@@ -370,16 +436,16 @@ def _isBuiltInModuleName(first_module_name: str):
   if first_module_name == "pybind11_builtins":
     return True
   return False
-  
+
 
 def isBuiltInModule(module: types.ModuleType):
   return _isBuiltInModuleName(getFullModuleName(module).split(".")[0])
-  
+
 
 def isBuiltInClass(cls: type):
   return _isBuiltInModuleName(cls.__module__.split(".")[0])
 
-  
+
 def _collectModulesAndClasses(
     object, packages: list[str], modules: list[types.ModuleType], classes: list[type],
     dict_class_name_to_alias: dict[str, str], ids: list[int]):

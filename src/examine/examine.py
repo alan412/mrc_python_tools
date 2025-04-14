@@ -18,6 +18,7 @@ __author__ = "lizlooney@google.com (Liz Looney)"
 import inspect
 import pathlib
 import re
+import sys
 import types
 
 # absl
@@ -55,7 +56,17 @@ import wpimath.units
 import wpinet
 import wpiutil
 
-# Local modules
+# External samples
+sys.path.append("../external_samples")
+import color_range_sensor
+import component
+import rev_touch_sensor
+import servo
+import smart_motor
+import sparkfun_led_stick
+
+# Common modules
+sys.path.append("../common")
 import python_util
 
 
@@ -66,17 +77,17 @@ flags.DEFINE_string('output_directory', None, 'The directory where output should
 
 class Examine:
 
-  def __init__(self, root_modules: list[types.ModuleType]):
+  def __init__(self, root_modules: list[types.ModuleType], filename: str):
     self._root_modules = root_modules
     (self._packages, self._modules, self._classes, self._dict_class_name_to_alias) = python_util.collectModulesAndClasses(self._root_modules)
     self._dict_class_name_to_subclass_names = python_util.collectSubclasses(self._classes)
-    self.output_file = open(f"{FLAGS.output_directory}/examine/examine.txt", "w", encoding="utf-8")
+    self.output_file = open(f"{FLAGS.output_directory}/examine/{filename}", "w", encoding="utf-8")
     self.show_ids = False
 
 
   def close(self):
     self.output_file.close()
-    
+
 
   def _isModuleFunction(self, parent, key: str, some_object) -> bool:
     return (
@@ -214,6 +225,14 @@ class Examine:
       joined = "\\n".join(doc.split("\n"))
       details.append(f"__doc__='{joined}'")
 
+    if inspect.isfunction(some_object):
+      if inspect.isclass(parent):
+        s = python_util.inspectSignature(some_object, parent)
+      else:
+        s = python_util.inspectSignature(some_object)
+      if s:
+        details.append(f"signature={s}")
+
     if self.show_ids:
       print(f"{indent}> {full_name}: {id(some_object)} {' '.join(details)}", file=self.output_file)
     else:
@@ -303,7 +322,7 @@ def main(argv):
 
   pathlib.Path(f"{FLAGS.output_directory}/examine").mkdir(exist_ok=True)
 
-  root_modules = [
+  robotpy_modules = [
     hal,
     hal.simulation,
     ntcore,
@@ -332,8 +351,20 @@ def main(argv):
     wpinet,
     wpiutil,
   ]
+  examine = Examine(robotpy_modules, "robotpy.txt")
+  examine.examine()
+  examine.showPackagesAndModulesAndClasses()
+  examine.close()
 
-  examine = Examine(root_modules)
+  external_samples_modules = [
+    color_range_sensor,
+    component,
+    rev_touch_sensor,
+    servo,
+    smart_motor,
+    sparkfun_led_stick,
+  ]
+  examine = Examine(external_samples_modules, "external_samples.txt")
   examine.examine()
   examine.showPackagesAndModulesAndClasses()
   examine.close()
