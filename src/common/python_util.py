@@ -527,18 +527,15 @@ def collectModulesAndClasses(root_modules: list[types.ModuleType]) -> tuple[list
 
 def collectSubclasses(classes: list[type]) -> dict[str, list[str]]:
   dict_class_name_to_subclass_names = {}
-  for c in classes:
-    mro = inspect.getmro(c)
-    for i in range(len(mro) - 1):
-      subclass = mro[i]
-      cls = mro[i + 1]
-      if isBuiltInClass(cls):
-        break
-      class_name = getFullClassName(cls)
-      subclass_names = dict_class_name_to_subclass_names.get(class_name)
+  for subclass in classes:
+    for base_class in subclass.__bases__:
+      if isBuiltInClass(base_class):
+        continue
+      base_class_name = getFullClassName(base_class)
+      subclass_names = dict_class_name_to_subclass_names.get(base_class_name)
       if not subclass_names:
-        subclass_names = [class_name]
-        dict_class_name_to_subclass_names.update({class_name: subclass_names})
+        subclass_names = []
+        dict_class_name_to_subclass_names.update({base_class_name: subclass_names})
       subclass_name = getFullClassName(subclass)
       if subclass_name not in subclass_names:
         subclass_names.append(subclass_name)
