@@ -60,6 +60,7 @@ import component
 import rev_touch_sensor
 import servo
 import smart_motor
+import spark_mini
 import sparkfun_led_stick
 
 # Common modules
@@ -124,6 +125,7 @@ def main(argv):
     rev_touch_sensor,
     servo,
     smart_motor,
+    spark_mini,
     sparkfun_led_stick,
   ]
   json_generator = json_util.JsonGenerator(external_samples_modules)
