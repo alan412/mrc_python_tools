@@ -318,7 +318,7 @@ def main(argv):
   del argv  # Unused.
 
   if not FLAGS.output_directory:
-    logging.error(f"You must specify the --output_directory argument")
+    logging.error("You must specify the --output_directory argument")
     return
 
   pathlib.Path(f"{FLAGS.output_directory}/examine").mkdir(exist_ok=True)

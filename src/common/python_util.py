@@ -306,6 +306,12 @@ def isOverloaded(object):
     object.__doc__ and object.__doc__.startswith(f"{object.__name__}(*args, **kwargs)\nOverloaded function.\n\n"))
 
 
+def _annotationToType(annotation) -> str:
+  if inspect.isclass(annotation):
+    return getFullClassName(annotation)
+  return annotation
+
+
 def inspectSignature(object, cls=None) -> str:
   try:
     sig = inspect.signature(object)
@@ -315,10 +321,7 @@ def inspectSignature(object, cls=None) -> str:
       param_name_prefix = ""
       param_type = ""
       if param.annotation != inspect.Parameter.empty:
-        if inspect.isclass(param.annotation):
-          param_type = getFullClassName(param.annotation)
-        else:
-          param_type = param.annotation
+        param_type = _annotationToType(param.annotation)
       else:
         if param.name == "self" and cls:
           param_type = getFullClassName(cls)
@@ -332,8 +335,9 @@ def inspectSignature(object, cls=None) -> str:
         s = f"{s}{delimiter}{param_name_prefix}{param.name}"
       delimiter = ", "
     s = f"{s})"
+
     if sig.return_annotation != inspect.Signature.empty:
-      s = f"{s} -> {sig.return_annotation}"
+      s = f"{s} -> {_annotationToType(sig.return_annotation)}"
     else:
       if object.__name__ == "__init__":
         s = f"{s} -> None"
