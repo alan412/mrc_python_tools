@@ -103,11 +103,14 @@ def getModuleName(m) -> str:
   return _DICT_FULL_MODULE_NAME_TO_MODULE_NAME.get(module_name, module_name)
 
 
-def getClassName(c) -> str:
+def getClassName(c, containing_class_name: str = None) -> str:
   if inspect.isclass(c):
     full_class_name = python_util.getFullClassName(c)
   elif isinstance(c, str):
-    full_class_name = c
+    if c == 'typing.Self' and containing_class_name:
+      full_class_name = containing_class_name
+    else:
+      full_class_name = c
   else:
     raise Exception(f'Argument c must be a class or a class name.')
   for full_module_name, module_name in _DICT_FULL_MODULE_NAME_TO_MODULE_NAME.items():
@@ -273,7 +276,7 @@ class JsonGenerator:
         continue
       var_data = {}
       var_data[_KEY_VARIABLE_NAME] = key
-      var_data[_KEY_VARIABLE_TYPE] = getClassName(type(value))
+      var_data[_KEY_VARIABLE_TYPE] = getClassName(type(value), class_name)
       var_data[_KEY_VARIABLE_WRITABLE] = python_util.isClassVariableWritable(cls, key, value)
       var_data[_KEY_TOOLTIP] = ''
       class_variables.append(var_data)
@@ -287,7 +290,7 @@ class JsonGenerator:
       var_type = python_util.getVarTypeFromGetter(value.fget)
       var_data = {}
       var_data[_KEY_VARIABLE_NAME] = key
-      var_data[_KEY_VARIABLE_TYPE] = getClassName(var_type)
+      var_data[_KEY_VARIABLE_TYPE] = getClassName(var_type, class_name)
       var_data[_KEY_VARIABLE_WRITABLE] = python_util.isInstanceVariableWritable(cls, key, value)
       var_data[_KEY_TOOLTIP] = value.__doc__
       instance_variables.append(var_data)
@@ -327,12 +330,12 @@ class JsonGenerator:
           arg_type = arg_types[i]
           if i == 0 and arg_name == 'self':
             if arg_type != full_class_name:
-              declaring_class_name = getClassName(arg_type)
+              declaring_class_name = getClassName(arg_type, class_name)
             # Don't append the self argument to the args array.
             continue;
           arg_data = {}
           arg_data[_KEY_ARGUMENT_NAME] = arg_name
-          arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_type)
+          arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_type, class_name)
           arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
           args.append(arg_data)
         constructor_data[_KEY_FUNCTION_ARGS] = args
@@ -375,15 +378,15 @@ class JsonGenerator:
           if i == 0 and arg_name == 'self':
             found_self_arg = True
             if arg_type != full_class_name:
-              declaring_class_name = getClassName(arg_type)
+              declaring_class_name = getClassName(arg_type, class_name)
           arg_data = {}
           arg_data[_KEY_ARGUMENT_NAME] = arg_name
-          arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_type)
+          arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_type, class_name)
           arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
           args.append(arg_data)
         function_data = {}
         function_data[_KEY_FUNCTION_NAME] = function_name
-        function_data[_KEY_FUNCTION_RETURN_TYPE] = getClassName(return_type)
+        function_data[_KEY_FUNCTION_RETURN_TYPE] = getClassName(return_type, class_name)
         function_data[_KEY_FUNCTION_ARGS] = args
         function_data[_KEY_FUNCTION_DECLARING_CLASS_NAME] = declaring_class_name
         function_data[_KEY_TOOLTIP] = comments[iSignature]

@@ -20,6 +20,7 @@ Robotics SPARKMini Motor Controller with PWM control.
 
 __author__ = "lizlooney@google.com (Liz Looney)"
 
+from typing import Self
 from component import Component, PortType, InvalidPortException
 import wpilib
 import wpimath
@@ -32,8 +33,6 @@ class SparkMiniComponent(Component):
             raise InvalidPortException
         # TODO(lizlooney): When we upgrade to 2027 robotpy, change PWMSparkMax to SparkMini.
         self.spark_mini = wpilib.PWMSparkMax(port) # wpilib.SparkMini(port)
-
-    # Component methods
 
     def get_manufacturer(self) -> str:
         return "REV Robotics"
@@ -63,6 +62,11 @@ class SparkMiniComponent(Component):
     def periodic(self) -> None:
         pass
 
+    # Alternative constructor to create an instance from a motor port
+    @classmethod
+    def from_motor_port(cls: type[Self], motor_port: int) -> Self:
+        return cls([(PortType.SMART_MOTOR_PORT, motor_port)])
+    
     # Component specific methods
 
     # Methods from wpilib.PWMMotorController
