@@ -15,6 +15,7 @@
 __author__ = "lizlooney@google.com (Liz Looney)"
 
 # Python Standard Library
+from enum import Enum
 import importlib
 import inspect
 import logging
@@ -180,8 +181,11 @@ def startsWithkUpper(s: str):
 
 
 def isEnum(object):
+  if not inspect.isclass(object):
+    return False
+  if issubclass(object, Enum):
+    return True
   return (
-      inspect.isclass(object) and
       object.__doc__ and
       (object.__doc__.startswith("Members:\n\n") or object.__doc__.find("\n\nMembers:\n\n") != -1) and
       hasattr(object, "__init__") and

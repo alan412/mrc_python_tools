@@ -212,6 +212,8 @@ class JsonGenerator:
     enums = []
     for key, value in inspect.getmembers(module, python_util.isEnum):
       enum_class_name = getClassName(value)
+      if getModuleName(value.__module__) != module_name:
+        continue
       fnIsEnumValue = self._createFunctionIsEnumValue(value)
       enum_values = []
       enum_tooltip = ''
