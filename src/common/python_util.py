@@ -286,13 +286,13 @@ def isInstanceVariableReadable(parent, key: str, object):
     not key.startswith("m_") and
     inspect.isdatadescriptor(object) and
     type(object) == property and
-    object.fget and inspect.isroutine(object.fget))
+    object.fget is not None and inspect.isroutine(object.fget))
 
 
 def isInstanceVariableWritable(parent, key: str, object):
   return (
     isInstanceVariableReadable(parent, key, object) and
-    object.fset and inspect.isroutine(object.fset))
+    object.fset is not None and inspect.isroutine(object.fset))
 
 
 def isTypeAlias(parent, key: str, object):

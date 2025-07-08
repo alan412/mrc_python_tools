@@ -198,13 +198,19 @@ class JsonGenerator:
           arg_data = {}
           arg_data[_KEY_ARGUMENT_NAME] = arg_names[i]
           arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_types[i])
-          arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
+          if arg_default_values[i] is not None:
+            arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
+          else:
+            arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = ''
           args.append(arg_data)
         function_data = {}
         function_data[_KEY_FUNCTION_NAME] = function_name
         function_data[_KEY_FUNCTION_RETURN_TYPE] = getClassName(return_type)
         function_data[_KEY_FUNCTION_ARGS] = args
-        function_data[_KEY_TOOLTIP] = comments[iSignature]
+        if comments[iSignature] is not None:
+          function_data[_KEY_TOOLTIP] = comments[iSignature]
+        else:
+          function_data[_KEY_TOOLTIP] = ''
         functions.append(function_data)
     module_data[_KEY_FUNCTIONS] = sorted(functions, key=lambda function_data: function_data[_KEY_FUNCTION_NAME])
 
@@ -226,7 +232,10 @@ class JsonGenerator:
       enum_data[_KEY_ENUM_CLASS_NAME] = enum_class_name
       enum_data[_KEY_MODULE_NAME] = getModuleName(value.__module__)
       enum_data[_KEY_ENUM_VALUES] = enum_values
-      enum_data[_KEY_TOOLTIP] = enum_tooltip
+      if enum_tooltip is not None:
+        enum_data[_KEY_TOOLTIP] = enum_tooltip
+      else:
+        enum_data[_KEY_TOOLTIP] = ''
       enums.append(enum_data)
     module_data[_KEY_ENUMS] = sorted(enums, key=lambda enum_data: enum_data[_KEY_ENUM_CLASS_NAME])
     return module_data
@@ -294,7 +303,10 @@ class JsonGenerator:
       var_data[_KEY_VARIABLE_NAME] = key
       var_data[_KEY_VARIABLE_TYPE] = getClassName(var_type, class_name)
       var_data[_KEY_VARIABLE_WRITABLE] = python_util.isInstanceVariableWritable(cls, key, value)
-      var_data[_KEY_TOOLTIP] = value.__doc__
+      if value.__doc__ is not None:
+        var_data[_KEY_TOOLTIP] = value.__doc__
+      else:
+        var_data[_KEY_TOOLTIP] = ''
       instance_variables.append(var_data)
     class_data[_KEY_INSTANCE_VARIABLES] = sorted(instance_variables, key=lambda var_data: var_data[_KEY_VARIABLE_NAME])
 
@@ -325,7 +337,10 @@ class JsonGenerator:
         declaring_class_name = class_name
         constructor_data = {}
         constructor_data[_KEY_FUNCTION_NAME] = function_name
-        constructor_data[_KEY_TOOLTIP] = comments[iSignature]
+        if comments[iSignature] is not None:
+          constructor_data[_KEY_TOOLTIP] = comments[iSignature]
+        else:
+          constructor_data[_KEY_TOOLTIP] = ''
         args = []
         for i in range(len(arg_names)):
           arg_name = arg_names[i]
@@ -338,7 +353,10 @@ class JsonGenerator:
           arg_data = {}
           arg_data[_KEY_ARGUMENT_NAME] = arg_name
           arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_type, class_name)
-          arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
+          if arg_default_values[i] is not None:
+            arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
+          else:
+            arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = ''
           args.append(arg_data)
         constructor_data[_KEY_FUNCTION_ARGS] = args
         constructor_data[_KEY_FUNCTION_DECLARING_CLASS_NAME] = declaring_class_name
@@ -384,14 +402,20 @@ class JsonGenerator:
           arg_data = {}
           arg_data[_KEY_ARGUMENT_NAME] = arg_name
           arg_data[_KEY_ARGUMENT_TYPE] = getClassName(arg_type, class_name)
-          arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
+          if arg_default_values[i] is not None:
+            arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = arg_default_values[i]
+          else:
+            arg_data[_KEY_ARGUMENT_DEFAULT_VALUE] = ''
           args.append(arg_data)
         function_data = {}
         function_data[_KEY_FUNCTION_NAME] = function_name
         function_data[_KEY_FUNCTION_RETURN_TYPE] = getClassName(return_type, class_name)
         function_data[_KEY_FUNCTION_ARGS] = args
         function_data[_KEY_FUNCTION_DECLARING_CLASS_NAME] = declaring_class_name
-        function_data[_KEY_TOOLTIP] = comments[iSignature]
+        if comments[iSignature] is not None:
+          function_data[_KEY_TOOLTIP] = comments[iSignature]
+        else:
+          function_data[_KEY_TOOLTIP] = ''
         if found_self_arg:
           instance_methods.append(function_data)
         else:
@@ -417,7 +441,10 @@ class JsonGenerator:
       enum_data[_KEY_ENUM_CLASS_NAME] = enum_class_name
       enum_data[_KEY_MODULE_NAME] = getModuleName(value.__module__)
       enum_data[_KEY_ENUM_VALUES] = enum_values
-      enum_data[_KEY_TOOLTIP] = enum_tooltip
+      if enum_tooltip is not None:
+        enum_data[_KEY_TOOLTIP] = enum_tooltip
+      else:
+        enum_data[_KEY_TOOLTIP] = ''
       enums.append(enum_data)
     class_data[_KEY_ENUMS] = sorted(enums, key=lambda enum_data: enum_data[_KEY_ENUM_CLASS_NAME])
     return class_data
